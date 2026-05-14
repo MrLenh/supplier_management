@@ -9,8 +9,12 @@ import app.models  # ensure all models are imported before create_all
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        print("Database tables created/verified.", flush=True)
+    except Exception as e:
+        print(f"WARNING: DB init failed (will retry on first request): {e}", flush=True)
     yield
 
 
