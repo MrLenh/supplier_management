@@ -28,6 +28,8 @@ class Supplier(Base):
     zipcode: Mapped[str | None] = mapped_column(String(20))
     notes: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(default=True)
+    username: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
+    hashed_password: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     product_suppliers: Mapped[list["ProductSupplier"]] = relationship(back_populates="supplier")

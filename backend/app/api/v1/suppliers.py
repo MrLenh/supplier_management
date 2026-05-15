@@ -47,7 +47,11 @@ async def list_suppliers(
 
 @router.post("", response_model=SupplierOut, status_code=201)
 async def create_supplier(body: SupplierCreate, db: AsyncSession = Depends(get_db)):
-    supplier = Supplier(**body.model_dump())
+    from app.core.security import hash_password
+    data = body.model_dump(exclude={"password"})
+    if body.password:
+        data["hashed_password"] = hash_password(body.password)
+    supplier = Supplier(**data)
     db.add(supplier)
     await db.commit()
     await db.refresh(supplier)
@@ -61,9 +65,13 @@ async def get_supplier(supplier_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{supplier_id}", response_model=SupplierOut)
 async def update_supplier(supplier_id: int, body: SupplierUpdate, db: AsyncSession = Depends(get_db)):
+    from app.core.security import hash_password
     supplier = await _get_or_404(supplier_id, db)
-    for k, v in body.model_dump(exclude_none=True).items():
+    data = body.model_dump(exclude_none=True, exclude={"password"})
+    for k, v in data.items():
         setattr(supplier, k, v)
+    if body.password:
+        supplier.hashed_password = hash_password(body.password)
     await db.commit()
     await db.refresh(supplier)
     return supplier

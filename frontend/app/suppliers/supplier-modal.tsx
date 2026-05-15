@@ -18,11 +18,16 @@ export function SupplierModal({ onClose, supplier }: { onClose: () => void; supp
     country: supplier?.country ?? "",
     zipcode: supplier?.zipcode ?? "",
     notes: supplier?.notes ?? "",
+    username: supplier?.username ?? "",
+    password: "",
   });
 
   const mut = useMutation({
-    mutationFn: (data: object) =>
-      supplier ? suppliersApi.update(supplier.id, data) : suppliersApi.create(data),
+    mutationFn: (data: any) => {
+      const payload: any = { ...data };
+      if (!payload.password) delete payload.password;
+      return supplier ? suppliersApi.update(supplier.id, payload) : suppliersApi.create(payload);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["suppliers"] });
       toast.success(supplier ? "Updated" : "Created");
@@ -89,6 +94,22 @@ export function SupplierModal({ onClose, supplier }: { onClose: () => void; supp
           <div className="col-span-2">
             <label className="label">Notes</label>
             <textarea className="input" rows={2} value={form.notes} onChange={f("notes")} />
+          </div>
+
+          {/* Portal credentials */}
+          <div className="col-span-2 border-t border-gray-100 pt-3 mt-1">
+            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Portal Login</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Username</label>
+                <input className="input" value={form.username} onChange={f("username")} placeholder="supplier_username" />
+              </div>
+              <div>
+                <label className="label">{supplier ? "New Password" : "Password"}</label>
+                <input className="input" type="password" value={form.password} onChange={f("password")}
+                  placeholder={supplier ? "Leave blank to keep" : "Set password"} />
+              </div>
+            </div>
           </div>
         </div>
 

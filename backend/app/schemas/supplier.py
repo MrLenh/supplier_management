@@ -19,7 +19,8 @@ class SupplierBase(BaseModel):
 
 
 class SupplierCreate(SupplierBase):
-    pass
+    username: str | None = None
+    password: str | None = None
 
 
 class SupplierUpdate(BaseModel):
@@ -34,11 +35,14 @@ class SupplierUpdate(BaseModel):
     zipcode: str | None = None
     notes: str | None = None
     is_active: bool | None = None
+    username: str | None = None
+    password: str | None = None
 
 
 class SupplierOut(SupplierBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    username: str | None = None
     created_at: datetime
 
 
