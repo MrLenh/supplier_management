@@ -15,10 +15,20 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await authApi.login({ username, password });
-      localStorage.setItem("admin_token", data.access_token);
-      localStorage.setItem("admin_user", JSON.stringify(data.user));
-      toast.success(`Welcome, ${data.user.username}!`);
-      router.push("/");
+      if (data.kind === "supplier") {
+        // Supplier → store portal token and go to portal
+        localStorage.setItem("supplier_token", data.access_token);
+        localStorage.setItem("supplier_name", data.user.name || data.user.username);
+        localStorage.setItem("supplier_id", String(data.user.id));
+        toast.success(`Welcome, ${data.user.name || data.user.username}!`);
+        router.push("/portal/orders");
+      } else {
+        // Admin/staff → store admin token and go to dashboard
+        localStorage.setItem("admin_token", data.access_token);
+        localStorage.setItem("admin_user", JSON.stringify(data.user));
+        toast.success(`Welcome, ${data.user.username}!`);
+        router.push("/");
+      }
     } catch (e: any) {
       toast.error(e.response?.data?.detail || "Invalid credentials");
     } finally {
@@ -34,7 +44,7 @@ export default function LoginPage() {
           <span className="text-sm text-gray-400">Fulfillment</span>
         </div>
         <h1 className="text-lg font-semibold text-gray-900 mb-1">Sign in</h1>
-        <p className="text-sm text-gray-500 mb-6">Admin dashboard access</p>
+        <p className="text-sm text-gray-500 mb-6">Admin or supplier account</p>
 
         <div className="space-y-4">
           <div>

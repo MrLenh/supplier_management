@@ -11,20 +11,42 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login")
 async def login(body: dict, db: AsyncSession = Depends(get_db)):
+    from app.models.supplier import Supplier
+
     username = body.get("username", "")
     password = body.get("password", "")
+
+    # 1. Try admin/staff users table first
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
-    if not user or not verify_password(password, user.hashed_password):
-        raise HTTPException(401, "Invalid username or password")
-    if not user.is_active:
-        raise HTTPException(403, "Account is disabled")
-    token = create_access_token(user.id, extra={"role": user.role, "username": user.username})
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {"id": user.id, "username": user.username, "role": user.role},
-    }
+    if user:
+        if not verify_password(password, user.hashed_password):
+            raise HTTPException(401, "Invalid username or password")
+        if not user.is_active:
+            raise HTTPException(403, "Account is disabled")
+        token = create_access_token(user.id, extra={"role": user.role, "username": user.username})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "kind": "admin",
+            "user": {"id": user.id, "username": user.username, "role": user.role},
+        }
+
+    # 2. Try suppliers table (portal access)
+    sup_result = await db.execute(select(Supplier).where(Supplier.username == username))
+    supplier = sup_result.scalar_one_or_none()
+    if supplier and supplier.hashed_password and verify_password(password, supplier.hashed_password):
+        if not supplier.is_active:
+            raise HTTPException(403, "Account is disabled")
+        token = create_access_token(supplier.id, extra={"role": "supplier", "username": supplier.name})
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "kind": "supplier",
+            "user": {"id": supplier.id, "username": supplier.username, "role": "supplier", "name": supplier.name},
+        }
+
+    raise HTTPException(401, "Invalid username or password")
 
 
 @router.get("/me", response_model=UserOut)
