@@ -8,9 +8,12 @@ class SupplierBase(BaseModel):
     name: str
     email: str | None = None
     phone: str | None = None
-    address: str | None = None
+    street1: str | None = None
+    street2: str | None = None
     city: str | None = None
+    state: str | None = None
     country: str | None = None
+    zipcode: str | None = None
     notes: str | None = None
     is_active: bool = True
 
@@ -23,9 +26,12 @@ class SupplierUpdate(BaseModel):
     name: str | None = None
     email: str | None = None
     phone: str | None = None
-    address: str | None = None
+    street1: str | None = None
+    street2: str | None = None
     city: str | None = None
+    state: str | None = None
     country: str | None = None
+    zipcode: str | None = None
     notes: str | None = None
     is_active: bool | None = None
 
@@ -41,8 +47,11 @@ class SupplierListOut(BaseModel):
     id: int
     name: str
     email: str | None
+    phone: str | None
     city: str | None
+    state: str | None
     country: str | None
+    zipcode: str | None
     is_active: bool
     product_count: int = 0
     total_stock: int = 0

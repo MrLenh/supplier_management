@@ -40,19 +40,24 @@ export default function SuppliersPage() {
       <div className="card table-wrapper">
         <table>
           <thead><tr>
-            <th>Name</th><th>Email</th><th>City</th><th>Country</th><th>Products</th><th>Stock</th><th>Status</th><th></th>
+            <th>Name</th><th>Contact</th><th>Address</th><th>Products</th><th>Stock</th><th>Status</th><th></th>
           </tr></thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={8} className="text-center py-8 text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-gray-400">Loading…</td></tr>
             ) : suppliers.length === 0 ? (
-              <tr><td colSpan={8} className="text-center py-8 text-gray-400">No suppliers found.</td></tr>
+              <tr><td colSpan={7} className="text-center py-8 text-gray-400">No suppliers found.</td></tr>
             ) : suppliers.map((s: any) => (
               <tr key={s.id}>
                 <td className="font-medium">{s.name}</td>
-                <td className="text-gray-500 text-xs">{s.email || "—"}</td>
-                <td>{s.city || "—"}</td>
-                <td>{s.country || "—"}</td>
+                <td>
+                  <div className="text-xs text-gray-600">{s.email || "—"}</div>
+                  {s.phone && <div className="text-xs text-gray-400">{s.phone}</div>}
+                </td>
+                <td className="text-xs text-gray-500">
+                  <div>{[s.city, s.state, s.country].filter(Boolean).join(", ") || "—"}</div>
+                  {s.zipcode && <div className="text-gray-400">{s.zipcode}</div>}
+                </td>
                 <td>{s.product_count}</td>
                 <td>{s.total_stock}</td>
                 <td><span className={s.is_active ? "badge-green" : "badge-gray"}>{s.is_active ? "Active" : "Inactive"}</span></td>
@@ -77,4 +82,3 @@ export default function SuppliersPage() {
     </div>
   );
 }
-

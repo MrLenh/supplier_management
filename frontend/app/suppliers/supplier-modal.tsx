@@ -11,38 +11,95 @@ export function SupplierModal({ onClose, supplier }: { onClose: () => void; supp
     name: supplier?.name ?? "",
     email: supplier?.email ?? "",
     phone: supplier?.phone ?? "",
-    address: supplier?.address ?? "",
+    street1: supplier?.street1 ?? "",
+    street2: supplier?.street2 ?? "",
     city: supplier?.city ?? "",
+    state: supplier?.state ?? "",
     country: supplier?.country ?? "",
+    zipcode: supplier?.zipcode ?? "",
     notes: supplier?.notes ?? "",
   });
+
   const mut = useMutation({
-    mutationFn: (data: object) => supplier ? suppliersApi.update(supplier.id, data) : suppliersApi.create(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["suppliers"] }); toast.success(supplier ? "Updated" : "Created"); onClose(); },
+    mutationFn: (data: object) =>
+      supplier ? suppliersApi.update(supplier.id, data) : suppliersApi.create(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success(supplier ? "Updated" : "Created");
+      onClose();
+    },
     onError: (e: any) => toast.error(e.response?.data?.detail || "Error"),
   });
+
   const f = (k: string) => (e: any) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="card w-full max-w-lg p-6">
+      <div className="card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold">{supplier ? "Edit Supplier" : "New Supplier"}</h2>
           <button onClick={onClose}><X className="w-5 h-5 text-gray-400" /></button>
         </div>
+
         <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><label className="label">Name *</label><input className="input" value={form.name} onChange={f("name")} /></div>
-          <div><label className="label">Email</label><input className="input" type="email" value={form.email} onChange={f("email")} /></div>
-          <div><label className="label">Phone</label><input className="input" value={form.phone} onChange={f("phone")} /></div>
-          <div className="col-span-2"><label className="label">Address</label><input className="input" value={form.address} onChange={f("address")} /></div>
-          <div><label className="label">City</label><input className="input" value={form.city} onChange={f("city")} /></div>
-          <div><label className="label">Country</label><input className="input" value={form.country} onChange={f("country")} /></div>
-          <div className="col-span-2"><label className="label">Notes</label><textarea className="input" rows={2} value={form.notes} onChange={f("notes")} /></div>
+          {/* Name */}
+          <div className="col-span-2">
+            <label className="label">Name *</label>
+            <input className="input" value={form.name} onChange={f("name")} placeholder="Supplier name" />
+          </div>
+
+          {/* Contact */}
+          <div>
+            <label className="label">Email</label>
+            <input className="input" type="email" value={form.email} onChange={f("email")} placeholder="supplier@email.com" />
+          </div>
+          <div>
+            <label className="label">Phone</label>
+            <input className="input" value={form.phone} onChange={f("phone")} placeholder="+1 234 567 890" />
+          </div>
+
+          {/* Address */}
+          <div className="col-span-2">
+            <label className="label">Street 1</label>
+            <input className="input" value={form.street1} onChange={f("street1")} placeholder="123 Main St" />
+          </div>
+          <div className="col-span-2">
+            <label className="label">Street 2 <span className="text-gray-400 font-normal">(optional)</span></label>
+            <input className="input" value={form.street2} onChange={f("street2")} placeholder="Suite 100" />
+          </div>
+
+          <div>
+            <label className="label">City</label>
+            <input className="input" value={form.city} onChange={f("city")} placeholder="New York" />
+          </div>
+          <div>
+            <label className="label">State</label>
+            <input className="input" value={form.state} onChange={f("state")} placeholder="NY" />
+          </div>
+          <div>
+            <label className="label">Country</label>
+            <input className="input" value={form.country} onChange={f("country")} placeholder="US" />
+          </div>
+          <div>
+            <label className="label">Zip Code</label>
+            <input className="input" value={form.zipcode} onChange={f("zipcode")} placeholder="10001" />
+          </div>
+
+          {/* Notes */}
+          <div className="col-span-2">
+            <label className="label">Notes</label>
+            <textarea className="input" rows={2} value={form.notes} onChange={f("notes")} />
+          </div>
         </div>
+
         <div className="flex justify-end gap-2 mt-4">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" disabled={!form.name} onClick={() => mut.mutate(form)}>
-            {supplier ? "Save" : "Create"}
+          <button
+            className="btn-primary"
+            disabled={!form.name || mut.isPending}
+            onClick={() => mut.mutate(form)}
+          >
+            {mut.isPending ? "Saving…" : supplier ? "Save" : "Create"}
           </button>
         </div>
       </div>

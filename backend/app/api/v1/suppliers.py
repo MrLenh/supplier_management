@@ -36,7 +36,8 @@ async def list_suppliers(
         ps_q = await db.execute(select(ProductSupplier).where(ProductSupplier.supplier_id == s.id))
         ps_list = ps_q.scalars().all()
         out.append(SupplierListOut(
-            id=s.id, name=s.name, email=s.email, city=s.city, country=s.country,
+            id=s.id, name=s.name, email=s.email, phone=s.phone,
+            city=s.city, state=s.state, country=s.country, zipcode=s.zipcode,
             is_active=s.is_active,
             product_count=len(ps_list),
             total_stock=sum(ps.stock for ps in ps_list),

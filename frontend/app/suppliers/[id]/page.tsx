@@ -38,7 +38,12 @@ export default function SupplierDetailPage() {
         <Link href="/suppliers" className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"><ArrowLeft className="w-4 h-4" /></Link>
         <div className="flex-1">
           <h1 className="page-title">{supplier.name}</h1>
-          <p className="text-sm text-gray-500">{[supplier.city, supplier.country].filter(Boolean).join(", ")}</p>
+          <p className="text-sm text-gray-500">
+            {[supplier.street1, supplier.street2, supplier.city, supplier.state, supplier.country, supplier.zipcode].filter(Boolean).join(", ") || "No address"}
+          </p>
+          {(supplier.email || supplier.phone) && (
+            <p className="text-xs text-gray-400 mt-0.5">{[supplier.email, supplier.phone].filter(Boolean).join(" · ")}</p>
+          )}
         </div>
         <button className="btn-secondary" onClick={() => setShowEdit(true)}><Pencil className="w-4 h-4" />Edit</button>
       </div>
