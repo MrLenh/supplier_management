@@ -37,16 +37,15 @@ SCOPES = (
 _pending_nonces: set[str] = set()
 
 
-def _callback_url(request: Request) -> str:
-    """Build the absolute callback URL from the incoming request."""
-    base = str(request.base_url).rstrip("/")
+def _callback_url() -> str:
+    """Absolute callback URL — must match Shopify app's whitelisted redirect URI."""
+    base = settings.BACKEND_URL.rstrip("/")
     return f"{base}/api/v1/shopify/callback"
 
 
 @router.get("/auth")
 async def shopify_auth(
     shop: str = Query(..., description="e.g. gingerglow.myshopify.com"),
-    request: Request = None,
 ):
     """Step 1 — redirect user to Shopify consent screen."""
     shop = shop.strip().lower()
@@ -56,7 +55,7 @@ async def shopify_auth(
     state = secrets.token_hex(16)
     _pending_nonces.add(state)
 
-    redirect_uri = _callback_url(request)
+    redirect_uri = _callback_url()
     url = (
         f"https://{shop}/admin/oauth/authorize"
         f"?client_id={settings.SHOPIFY_API_KEY}"
@@ -73,7 +72,7 @@ async def shopify_callback(
     code: str = Query(...),
     hmac: str = Query(...),
     state: str = Query(...),
-    request: Request = None,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Step 2 — verify HMAC, exchange code, save connection."""
