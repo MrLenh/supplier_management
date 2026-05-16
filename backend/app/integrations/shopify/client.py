@@ -31,3 +31,11 @@ class ShopifyClient:
             resp = await client.put(f"{self._base}{path}", headers=self._headers(), json=body)
             resp.raise_for_status()
             return resp.json()
+
+    async def get_locations(self) -> list[dict]:
+        data = await self.get("/locations.json")
+        return data.get("locations", [])
+
+    async def get_fulfillment_orders(self, order_id: str) -> list[dict]:
+        data = await self.get(f"/orders/{order_id}/fulfillment_orders.json")
+        return data.get("fulfillment_orders", [])

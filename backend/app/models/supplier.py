@@ -30,6 +30,7 @@ class Supplier(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     username: Mapped[str | None] = mapped_column(String(100), unique=True, index=True)
     hashed_password: Mapped[str | None] = mapped_column(String(255))
+    shopify_location_id: Mapped[str | None] = mapped_column(String(100), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     product_suppliers: Mapped[list["ProductSupplier"]] = relationship(back_populates="supplier")

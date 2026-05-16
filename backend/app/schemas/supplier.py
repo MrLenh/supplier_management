@@ -43,6 +43,7 @@ class SupplierOut(SupplierBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     username: str | None = None
+    shopify_location_id: str | None = None
     created_at: datetime
 
 

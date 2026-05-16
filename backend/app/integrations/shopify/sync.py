@@ -3,6 +3,7 @@ from app.integrations.shopify.client import ShopifyClient
 from app.models.marketplace import MarketplaceConnection, MarketplaceListing, ListingStatus
 from app.models.product import Product
 from app.models.order import Order, OrderLineItem
+from app.models.supplier import Supplier
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timezone
@@ -131,12 +132,80 @@ class ShopifySync(MarketplaceSyncer):
         await db.commit()
         return count
 
+    async def sync_locations(self, db: AsyncSession) -> dict:
+        """
+        Pull Shopify locations and upsert as Suppliers.
+        Returns {"created": n, "updated": n, "locations": [...]}
+        """
+        locations = await self.client.get_locations()
+        created = updated = 0
+        synced = []
+
+        for loc in locations:
+            if not loc.get("active"):
+                continue
+
+            location_id = str(loc["id"])
+            result = await db.execute(
+                select(Supplier).where(Supplier.shopify_location_id == location_id)
+            )
+            supplier = result.scalar_one_or_none()
+
+            addr1 = loc.get("address1") or ""
+            addr2 = loc.get("address2") or ""
+            city = loc.get("city") or ""
+            state = loc.get("province") or ""
+            country = loc.get("country_code") or loc.get("country") or ""
+            zipcode = loc.get("zip") or ""
+            phone = loc.get("phone") or ""
+
+            if supplier:
+                supplier.name = loc["name"]
+                supplier.street1 = addr1
+                supplier.street2 = addr2
+                supplier.city = city
+                supplier.state = state
+                supplier.country = country
+                supplier.zipcode = zipcode
+                supplier.phone = phone
+                updated += 1
+            else:
+                supplier = Supplier(
+                    name=loc["name"],
+                    street1=addr1,
+                    street2=addr2,
+                    city=city,
+                    state=state,
+                    country=country,
+                    zipcode=zipcode,
+                    phone=phone,
+                    shopify_location_id=location_id,
+                    is_active=True,
+                )
+                db.add(supplier)
+                await db.flush()
+                created += 1
+
+            synced.append({
+                "shopify_location_id": location_id,
+                "name": loc["name"],
+                "supplier_id": supplier.id,
+                "action": "updated" if updated and not created else "created",
+            })
+
+        await db.commit()
+        return {"created": created, "updated": updated, "locations": synced}
+
     async def sync_orders(self, db: AsyncSession) -> int:
-        """Fetch unfulfilled Shopify orders and upsert into local DB."""
+        """Fetch unfulfilled Shopify orders and upsert into local DB.
+        Uses fulfillment_orders API to auto-assign suppliers by Shopify location."""
         try:
             data = await self.client.get("/orders.json", params={"fulfillment_status": "unfulfilled", "status": "open", "limit": 250})
         except Exception:
             return 0
+
+        # Pre-load location_id → supplier_id map for this sync run
+        location_supplier_map = await self._load_location_supplier_map(db)
 
         count = 0
         for od in data.get("orders", []):
@@ -150,7 +219,11 @@ class ShopifySync(MarketplaceSyncer):
                 connection_id=self.connection.id,
                 marketplace="shopify",
                 external_order_id=ext_id,
-                buyer_name=od.get("customer", {}).get("first_name", "") + " " + od.get("customer", {}).get("last_name", ""),
+                buyer_name=(
+                    (od.get("customer") or {}).get("first_name", "")
+                    + " "
+                    + (od.get("customer") or {}).get("last_name", "")
+                ).strip(),
                 buyer_email=od.get("email"),
                 shipping_address={
                     "name": sa.get("name"),
@@ -169,24 +242,73 @@ class ShopifySync(MarketplaceSyncer):
             db.add(order)
             await db.flush()
 
+            # Build map: shopify line_item_id → OrderLineItem for location assignment
+            li_by_shopify_id: dict[str, OrderLineItem] = {}
             for item in od.get("line_items", []):
-                listing = await db.execute(
+                listing_res = await db.execute(
                     select(MarketplaceListing).where(
                         MarketplaceListing.marketplace_sku == item.get("sku"),
                         MarketplaceListing.connection_id == self.connection.id,
                     )
                 )
-                listing_obj = listing.scalar_one_or_none()
-                db.add(OrderLineItem(
+                listing_obj = listing_res.scalar_one_or_none()
+                shopify_li_id = str(item.get("id"))
+                li = OrderLineItem(
                     order_id=order.id,
                     product_id=listing_obj.product_id if listing_obj else None,
                     listing_id=listing_obj.id if listing_obj else None,
-                    external_line_item_id=str(item.get("id")),
+                    external_line_item_id=shopify_li_id,
                     product_name=item.get("title", ""),
                     sku=item.get("sku"),
                     quantity=item.get("quantity", 1),
                     price=float(item.get("price", 0)),
-                ))
+                )
+                db.add(li)
+                li_by_shopify_id[shopify_li_id] = li
+
+            await db.flush()
+
+            # Assign suppliers via fulfillment_orders (best effort — skip on error)
+            if location_supplier_map:
+                await self._assign_suppliers_from_fulfillment_orders(
+                    ext_id, li_by_shopify_id, location_supplier_map
+                )
+
             count += 1
 
+        await db.commit()
         return count
+
+    async def _load_location_supplier_map(self, db: AsyncSession) -> dict[str, int]:
+        """Returns {shopify_location_id: supplier_id} for all linked suppliers."""
+        result = await db.execute(
+            select(Supplier).where(Supplier.shopify_location_id.isnot(None))
+        )
+        return {
+            s.shopify_location_id: s.id
+            for s in result.scalars().all()
+            if s.shopify_location_id
+        }
+
+    async def _assign_suppliers_from_fulfillment_orders(
+        self,
+        shopify_order_id: str,
+        li_by_shopify_id: dict[str, "OrderLineItem"],
+        location_map: dict[str, int],
+    ) -> None:
+        """Map fulfillment order locations → line item supplier_id."""
+        try:
+            fulfillment_orders = await self.client.get_fulfillment_orders(shopify_order_id)
+        except Exception:
+            return
+
+        for fo in fulfillment_orders:
+            location_id = str(fo.get("assigned_location_id", ""))
+            supplier_id = location_map.get(location_id)
+            if not supplier_id:
+                continue
+            for fo_item in fo.get("line_items", []):
+                shopify_li_id = str(fo_item.get("line_item_id", ""))
+                li = li_by_shopify_id.get(shopify_li_id)
+                if li:
+                    li.supplier_id = supplier_id

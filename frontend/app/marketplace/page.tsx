@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { marketplaceApi } from "@/lib/api";
 import toast from "react-hot-toast";
-import { Plus, RefreshCw, Zap, Trash2, CheckCircle, XCircle, X, Package, Link2 } from "lucide-react";
+import { Plus, RefreshCw, Zap, Trash2, CheckCircle, XCircle, X, Package, Link2, MapPin } from "lucide-react";
 
 export default function MarketplacePage() {
   const qc = useQueryClient();
@@ -32,6 +32,15 @@ export default function MarketplacePage() {
   const syncProductsMut = useMutation({
     mutationFn: (id: number) => marketplaceApi.syncProducts(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["products"] }); toast.success("Product sync started"); },
+  });
+
+  const syncLocationsMut = useMutation({
+    mutationFn: (id: number) => marketplaceApi.syncLocations(id),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["suppliers"] });
+      toast.success(`Locations synced — ${data.created} created, ${data.updated} updated`);
+    },
+    onError: (e: any) => toast.error(e.response?.data?.detail || "Location sync failed"),
   });
 
   return (
@@ -65,6 +74,7 @@ export default function MarketplacePage() {
               onTest={() => testMut.mutate(c.id)}
               onSyncOrders={() => syncOrdersMut.mutate(c.id)}
               onSyncProducts={() => syncProductsMut.mutate(c.id)}
+              onSyncLocations={() => syncLocationsMut.mutate(c.id)}
               onDelete={() => confirm("Delete?") && deleteMut.mutate(c.id)}
             />
           ))}
@@ -76,7 +86,7 @@ export default function MarketplacePage() {
   );
 }
 
-function ConnectionCard({ conn, onTest, onSyncOrders, onSyncProducts, onDelete }: any) {
+function ConnectionCard({ conn, onTest, onSyncOrders, onSyncProducts, onSyncLocations, onDelete }: any) {
   const statusIcon = conn.status === "active" ? (
     <CheckCircle className="w-4 h-4 text-green-500" />
   ) : conn.status === "error" ? (
@@ -116,6 +126,11 @@ function ConnectionCard({ conn, onTest, onSyncOrders, onSyncProducts, onDelete }
         <button className="btn-secondary text-xs py-1 flex-1" onClick={onSyncProducts}>
           <Package className="w-3 h-3" /> Sync Products
         </button>
+        {conn.marketplace === "shopify" && (
+          <button className="btn-secondary text-xs py-1 flex-1" onClick={onSyncLocations}>
+            <MapPin className="w-3 h-3" /> Sync Locations
+          </button>
+        )}
         <button className="p-1.5 hover:text-red-500 text-gray-400" onClick={onDelete}>
           <Trash2 className="w-4 h-4" />
         </button>
